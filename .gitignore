@@ -1,0 +1,7 @@
+lexicon.txt
+forward_index.txt
+inverted_index.txt
+docs.txt
+Posts.xml
+build_forward
+build_inverted
