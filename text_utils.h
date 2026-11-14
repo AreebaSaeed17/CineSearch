@@ -5,7 +5,6 @@
 #include <vector>
 using namespace std;
 
-
 // the function below takes in some text and 2 substrings as an input
 // throughout that string, it will swap the "from" data with the "to" data
 // from is the substring that i want to find from the entered text
@@ -50,6 +49,7 @@ inline string decodeXmlEntities(string text) {
     return text;
 }
 
+
 // this function removes everything with similar structure to a tag
     // eg <p> or <a href="...">
 // identifies the "tag" by looking at the structure
@@ -77,3 +77,94 @@ inline string removeHtmlTags(const string& text) {
     }
     return result;
 }
+
+
+/* Get the value of an attribute from each row (line)
+
+    // eg if string line ="(<row Id="5" Score="12" Name="xyz" />)";
+        the meaningful data in this is:
+        Id    = 5
+        Score = 12
+        Name  = xyz
+
+    what this function does as a whole is
+        Find:   Score="
+        Jump:   to first character after "
+        Stop:   at next "
+        Return: everything in between
+
+        if nothing is found, return empty space
+
+key builds the way to search for that attribute
+    if attribute name = "Score"
+    key = " Score\""
+
+*/
+
+inline string getAttribute(const string& line, const string& name) {
+    string key = " " + name + "=\"";
+    size_t start = line.find(key);
+    
+    if (start == string::npos) return "";
+    start += key.length();
+    size_t end = line.find('"', start);
+    
+    if (end == string::npos) return "";
+    return line.substr(start, end - start);
+}
+
+
+// this function takes in a string as input
+inline vector<string> tokenize(const string& text) {
+    vector<string> words;           // stores all extracted words 
+    
+    // This is an optimization
+    // Without reserve(), the vector may repeatedly grow as words are added
+        // 5 means that the avg word length would be around 5 
+        // so based on that if text length is 100, it would have around 20 words
+    words.reserve(text.size() / 5);
+
+    // by traversing char by char, build a word
+    // that is stored initially in the string "word"
+    // allocate 32 bytes to prevent the string from resizing again and again
+        // this improves efficiency
+    string word;
+    word.reserve(32);
+
+    // unsigned will safely handle any neg numbers between string
+    // isalnum = is it alphanumeric?
+    // if so, simply make it lowercase and append to the temp string "word"
+    for (unsigned char ch : text) {
+        if (isalnum(ch)) {
+            word += (char)tolower(ch);
+        } 
+
+        // if smth isnt alphanumeric then it must be some special char
+        // what this means is that the word we were building has been completed
+        // check valid length 
+        // transfer it to the string WORDS (not copying to make operation faster) 
+        else {
+            if (word.size() >= 1 && word.size() <= 30) {
+                words.push_back(move(word));
+            }
+            word.clear();           // clear for next word
+        }
+    }
+
+    // handles edge case:   what if the word doesnt have any punctuation at the end? 
+    //                      wouldnt get pushed without external intervention
+    if (word.size() >= 1 && word.size() <= 30) {
+        words.push_back(move(word));
+    }
+
+    return words;
+}
+
+// Make text safe to store on one line of a tab-separated file
+inline string makeOneLine(string text) {
+    for (char& c : text) {
+        if (c == '\t' || c == '\n' || c == '\r') c = ' ';
+    }
+    return text;
+}
+
