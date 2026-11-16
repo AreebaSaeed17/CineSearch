@@ -123,6 +123,46 @@ int main(int argc, char* argv[]) {
         // safety check
         if (wordsInDoc.empty()) continue;   
 
+
+        /* 
+        WRITING TO THE FILES:
+        data has to be written to:
+            1. forwardindex: 
+                Writes the post's ID followed by all its word stats 
+                format = wordID:frequency:inTitle 
+                (for example: 0 45:3:1 89:1:0 means Post 0 contains Word 45 three times including in the title, and Word 89 once in the body)
+
+            2. docs.txt:
+                Writes a simple single-line summary of the post 
+                (ID, score, views, title and the first 200 characters as a preview snippet)
+
+        */
+        forwardFile << docId;
+        for (const auto& entry : wordsInDoc) {
+            forwardFile << " " << entry.first << ":" << entry.second.frequency
+                        << ":" << entry.second.inTitle;
+        }
+        forwardFile << "\n";
+
+        string snippet = makeOneLine(bodyText.substr(0, 200));
+        docsFile << docId << "\t" << postId << "\t" << postType << "\t" << score << "\t"
+                 << views << "\t" << date << "\t" << tags << "\t"
+                 << makeOneLine(title) << "\t" << snippet << "\n";
+
+        docId++;
+        // just to see progress
+        if (docId % 10000 == 0) cout << "Processed " << docId << " documents..." << endl;
+    }
+
+    // write to lexicon.txt
+    // Once it finishes reading the whole file, it pushed the entire lexicon dictionary into lexicon.txt and shuts down
+    ofstream lexiconFile("lexicon.txt");
+    for (const auto& entry : lexicon) {
+        lexiconFile << entry.first << " " << entry.second << "\n";
+    }
+
+    cout << "Done. Documents: " << docId << ", unique words: " << lexicon.size() << endl;
+    return 0;
         
 }
 
