@@ -2,6 +2,7 @@
 //   lexicon.txt           word and its id
 //   forward_index.txt     docId  wordId:frequency:inTitle ...
 //   docs.txt              metadata of every document (for ranking/display)
+                        // + answers have a ParentId pointing to their question, questions have none
 
 #include <iostream>
 #include <fstream>
@@ -91,13 +92,15 @@ int main(int argc, char* argv[]) {
         string score    = getAttribute(line, "Score");
         string views    = getAttribute(line, "ViewCount");
         string date     = getAttribute(line, "CreationDate");
+        string parentId = getAttribute(line, "ParentId");
         string title    = decodeXmlEntities(getAttribute(line, "Title"));
         string tags     = tagsToCommaList(getAttribute(line, "Tags"));
         string bodyText = removeHtmlTags(decodeXmlEntities(getAttribute(line, "Body")));
 
         // fill out stuff that could possibly be empty
         if (score == "") score = "0";
-        if (views == "") views = "0";     
+        if (views == "") views = "0";  
+        if (parentId == "") parentId = "0";   // since a qs doesnt have parent  
 
         // count words in this document 
         unordered_map<int, WordInfo> wordsInDoc;
@@ -145,9 +148,9 @@ int main(int argc, char* argv[]) {
         forwardFile << "\n";
 
         string snippet = makeOneLine(bodyText.substr(0, 200));
-        docsFile << docId << "\t" << postId << "\t" << postType << "\t" << score << "\t"
+               docsFile << docId << "\t" << postId << "\t" << postType << "\t" << score << "\t"
                  << views << "\t" << date << "\t" << tags << "\t"
-                 << makeOneLine(title) << "\t" << snippet << "\n";
+                 << makeOneLine(title) << "\t" << snippet << "\t" << parentId << "\n";
 
         docId++;
         // just to see progress
