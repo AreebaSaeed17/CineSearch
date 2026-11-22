@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CineSearch</title>
+<style>
+:root {
+  --bg: #f3f2ef; --card: #ffffff; --ink: #1d1b22; --muted: #6b6874; --line: #d9d6cf;
+  --curtain: #8e1b2f; --curtain-ink: #ffffff; --mark: #f3d36b; --focus: #1f5fbf;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #17151a; --card: #211e26; --ink: #efece6; --muted: #a29ea9; --line: #3a3641;
+          --curtain: #c2415a; --mark: #7a6420; --focus: #7aa7f0; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 var(--sans); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.wrap { max-width: 760px; margin: 0 auto; padding: 0 20px 64px; }
+
+header { padding: 56px 0 24px; transition: padding .25s; }
+body.searched header { padding: 24px 0 12px; }
+h1 { font: 700 clamp(2.4rem, 8vw, 3.6rem)/1 var(--serif); letter-spacing: -.02em; margin: 0 0 6px; }
+body.searched h1 { font-size: 1.8rem; }
+.tag { margin: 0 0 22px; color: var(--muted); }
+body.searched .tag { display: none; }
+
+.searchbox { position: relative; }
+.row { display: flex; gap: 8px; }
+input[type=search] { flex: 1; min-width: 0; padding: 14px 16px; font: inherit; font-size: 1.1rem; color: var(--ink);
+  background: var(--card); border: 2px solid var(--line); border-radius: 6px; }
+input[type=search]:focus { border-color: var(--curtain); outline: none; }
+button.go { padding: 0 22px; font: 600 1rem var(--sans); color: var(--curtain-ink); background: var(--curtain);
+  border: 0; border-radius: 6px; cursor: pointer; }
+button.go:hover { filter: brightness(1.1); }
+
+#suggest { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; margin: 0; padding: 4px 0; list-style: none;
+  background: var(--card); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.15); }
+#suggest[hidden] { display: none; }
+#suggest li { display: flex; justify-content: space-between; gap: 12px; padding: 9px 16px; cursor: pointer; }
+#suggest li[aria-selected=true], #suggest li:hover { background: var(--bg); }
+#suggest .n { color: var(--muted); font-size: .85rem; }
+#suggest b { font-weight: 700; }
+
+.filters { display: flex; gap: 6px; margin-top: 14px; }
+.filters button { padding: 5px 14px; font: inherit; font-size: .9rem; color: var(--ink); background: transparent;
+  border: 1px solid var(--line); border-radius: 99px; cursor: pointer; }
+.filters button[aria-pressed=true] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+#status { margin: 20px 0 8px; color: var(--muted); font-size: .92rem; min-height: 1.4em; }
+
+article { display: grid; grid-template-columns: 76px 1fr; background: var(--card); border: 1px solid var(--line);
+  border-radius: 6px; margin-bottom: 12px; }
+.stub { padding: 14px 8px; text-align: center; border-right: 2px dashed var(--line); }
+.stub .kind { display: block; font-size: .8rem; font-weight: 700; color: var(--curtain); }
+.stub .votes { display: block; font: 700 1.5rem/1.2 var(--serif); }
+.stub .lbl { font-size: .75rem; color: var(--muted); }
+.body { padding: 14px 18px; min-width: 0; }
+.body h2 { margin: 0 0 4px; font: 600 1.2rem/1.3 var(--serif); }
+.body h2 a { color: inherit; text-decoration: none; }
+.body h2 a:hover { color: var(--curtain); text-decoration: underline; }
+.snip { margin: 0 0 8px; color: var(--ink); opacity: .85; overflow-wrap: anywhere; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .85rem; color: var(--muted); }
+.tags span { padding: 1px 8px; margin-right: 4px; border: 1px solid var(--line); border-radius: 99px; }
+mark { background: var(--mark); color: inherit; padding: 0 1px; border-radius: 2px; }
+
+nav { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 24px; }
+nav button { padding: 8px 18px; font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--line);
+  border-radius: 6px; cursor: pointer; }
+nav button:disabled { opacity: .4; cursor: default; }
+.empty { padding: 28px 0; }
+.empty h2 { font: 600 1.3rem var(--serif); margin: 0 0 6px; }
+@media (max-width: 520px) { article { grid-template-columns: 58px 1fr; } .stub .votes { font-size: 1.2rem; } }
+@media (prefers-reduced-motion: reduce) { header { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>CineSearch</h1>
+    <p class="tag">Search movie questions and answers.</p>
+    <div class="searchbox">
+      <form class="row" id="form" role="search" autocomplete="off">
+        <input type="search" id="q" placeholder="Search for a movie, actor, or plot detail" aria-label="Search"
+               role="combobox" aria-expanded="false" aria-controls="suggest" aria-autocomplete="list">
+        <button class="go" type="submit">Search</button>
+      </form>
+      <ul id="suggest" role="listbox" hidden></ul>
+    </div>
+    <div class="filters" id="filters" role="group" aria-label="Result type">
+      <button type="button" data-type="all" aria-pressed="true">All</button>
+      <button type="button" data-type="question" aria-pressed="false">Questions</button>
+      <button type="button" data-type="answer" aria-pressed="false">Answers</button>
+    </div>
+  </header>
+  <div id="status" role="status" aria-live="polite"></div>
+  <main id="results"></main>
+  <nav id="pager" hidden>
+    <button id="prev">Previous</button><span id="pageinfo"></span><button id="next">Next</button>
+  </nav>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const q = $("q"), box = $("suggest");
+let state = { query: "", page: 1, type: "all" };
+let sugg = [], active = -1, timer = null, reqId = 0;
+
+const esc = s => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function highlight(text, terms) {
+  if (!terms.length) return esc(text);
+  const re = new RegExp("\\b(" + terms.map(reEsc).join("|") + ")", "gi");
+  return text.split(re).map((p, i) => i % 2 ? "<mark>" + esc(p) + "</mark>" : esc(p)).join("");
+}
+
+/* ---------- autocomplete ---------- */
+function closeSuggest() { box.hidden = true; q.setAttribute("aria-expanded", "false"); active = -1; }
+function renderSuggest() {
+  if (!sugg.length) return closeSuggest();
+  const typed = (q.value.match(/[a-z0-9]+$/i) || [""])[0].length;
+  box.innerHTML = sugg.map((s, i) => {
+    const w = s.word;
+    return `<li role="option" data-i="${i}" aria-selected="${i === active}"><span>${esc(s.text.slice(0, s.text.length - w.length))}<b>${esc(w.slice(0, typed))}</b>${esc(w.slice(typed))}</span><span class="n">${s.count} posts</span></li>`;
+  }).join("");
+  box.hidden = false; q.setAttribute("aria-expanded", "true");
+}
+async function fetchSuggest() {
+  const text = q.value, id = ++reqId;
+  if (!/[a-z0-9]$/i.test(text)) { sugg = []; return closeSuggest(); }
+  try {
+    const r = await fetch("/api/autocomplete?q=" + encodeURIComponent(text));
+    const d = await r.json();
+    if (id !== reqId) return;          // a newer keystroke superseded this response
+    sugg = d.suggestions; active = -1; renderSuggest();
+  } catch { closeSuggest(); }
+}
+q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(fetchSuggest, 150); });
+q.addEventListener("keydown", e => {
+  if (box.hidden) return;
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    active = (active + (e.key === "ArrowDown" ? 1 : -1) + sugg.length + 1) % (sugg.length + 1) ;
+    if (active === sugg.length) active = -1;
+    renderSuggest();
+  } else if (e.key === "Enter" && active >= 0) {
+    e.preventDefault(); pick(active);
+  } else if (e.key === "Escape") closeSuggest();
+});
+box.addEventListener("mousedown", e => { const li = e.target.closest("li"); if (li) { e.preventDefault(); pick(+li.dataset.i); } });
+document.addEventListener("click", e => { if (!e.target.closest(".searchbox")) closeSuggest(); });
+function pick(i) { q.value = sugg[i].text + " "; closeSuggest(); q.focus(); fetchSuggest(); }
+
+/* ---------- search ---------- */
+async function search() {
+  const query = state.query;
+  if (!query) return;
+  document.body.classList.add("searched");
+  $("status").textContent = "Searching…";
+  try {
+    const url = `/api/search?q=${encodeURIComponent(query)}&page=${state.page}&type=${state.type}`;
+    const r = await fetch(url);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.statusText);
+    render(d);
+  } catch (err) {
+    $("results").innerHTML = "";
+    $("pager").hidden = true;
+    $("status").textContent = "Could not reach the search server. Check that app.py is running. (" + err.message + ")";
+  }
+}
+function render(d) {
+  $("status").textContent = d.total
+    ? `${d.total.toLocaleString()} results in ${d.took_ms} ms`
+    : "";
+  if (!d.total) {
+    $("results").innerHTML = `<div class="empty"><h2>No results for “${esc(d.query)}”</h2><p>Try fewer or different words, or switch the filter to All.</p></div>`;
+    $("pager").hidden = true; return;
+  }
+  $("results").innerHTML = d.results.map(r => `
+    <article>
+      <div class="stub"><span class="kind">${r.type === "question" ? "Question" : "Answer"}</span>
+        <span class="votes">${r.score}</span><span class="lbl">votes</span></div>
+      <div class="body">
+        <h2><a href="${esc(r.url)}" target="_blank" rel="noopener">${highlight(r.title, d.terms)}</a></h2>
+        <p class="snip">${highlight(r.snippet, d.terms)}${r.snippet.length >= 190 ? "…" : ""}</p>
+        <div class="meta">
+          <span class="tags">${r.tags.map(t => `<span>${highlight(t, d.terms)}</span>`).join("")}</span>
+          <span>${r.views.toLocaleString()} views</span><span>${esc(r.date)}</span>
+        </div>
+      </div></article>`).join("");
+  $("pager").hidden = d.pages <= 1;
+  $("pageinfo").textContent = `Page ${d.page} of ${d.pages}`;
+  $("prev").disabled = d.page <= 1; $("next").disabled = d.page >= d.pages;
+}
+function go(query, page = 1) { state.query = query; state.page = page; search(); }
+
+$("form").addEventListener("submit", e => { e.preventDefault(); closeSuggest(); go(q.value.trim()); });
+$("prev").onclick = () => { go(state.query, state.page - 1); scrollTo({ top: 0 }); };
+$("next").onclick = () => { go(state.query, state.page + 1); scrollTo({ top: 0 }); };
+$("filters").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  state.type = b.dataset.type;
+  document.querySelectorAll("#filters button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  if (state.query) go(state.query);
+});
+q.focus();
+</script>
+</body>
+</html>
