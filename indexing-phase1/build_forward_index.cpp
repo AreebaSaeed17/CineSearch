@@ -27,7 +27,8 @@ unordered_map<string, int> lexicon;
     // using find(word), we get to know whether that word has already been assigned a wordid in the table or not
     // "it" is an iterator pointing to the location of the entry that stores that {word: wordid}
 int getOrAddWord(const string& word) {
-    // lexicon.end() is a special mem loc which is after the last entry
+    // lexicon.end() is a special iterator that represents
+    // "not found" or one position past the last element
     // so if we havent reached that, this means we found the word, return it
     auto it = lexicon.find(word);                   
     if (it != lexicon.end()) 
@@ -35,13 +36,14 @@ int getOrAddWord(const string& word) {
     
     // runs incase find fails and that word is a new word
     // create an id
-    // Next unused ID = number of existing words {as it starts from 0}
+    // IDs start at 0, so the next available ID is the
+    // current number of words already stored
     int newId = (int)lexicon.size();
     lexicon[word] = newId;
     return newId;
 }
 
-// clean the rows by removing tags
+// tags to strings
 //  eg "<sci-fi><time-travel>" is changed to "sci-fi,time-travel"
 string tagsToCommaList(const string& rawTags) {
     string decoded = decodeXmlEntities(rawTags);
@@ -75,7 +77,8 @@ int main(int argc, char* argv[]) {
     int docId = 0;
 
     // this loop reads the input passed file line by line
-    // each post {having qs and answers} = one row or record
+    // Each <row> in Posts.xml represents one post
+    // (either a question or an answer)
 
     // it is going to filter out the qs into 2 groups
         // questions 1, answers 2
